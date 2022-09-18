@@ -1,12 +1,31 @@
-from typing import Tuple
+from copyreg import pickle
+from typing import List, Tuple
 import numpy as np
 from functools import lru_cache
 import time
+import pickle
 
 def compress(text: str) -> bytes:
-    return "".join(
-        [str(elm) for elm in generate_compressed_tuples(text)]
-    ).encode()
+    return str(generate_compressed_tuples(text)).encode()
+
+def decompress(compressed_text: bytes) -> str:
+    tuples = eval(compressed_text.decode())
+    return generate_text_from_tuples_recursively(tuples, "")
+
+
+def generate_text_from_tuples_recursively(tuples: List[Tuple], current_text: str):
+    current_text = ""
+    current_idx = 0
+    while current_idx < len(tuples):
+        offset, length, letter = tuples[current_idx]
+        current_text = current_text + letter
+        if length > offset + 1:
+            tuples[current_idx] = offset, length - offset, letter
+            current_text += current_text[-offset:-1] 
+        else:
+            current_idx += 1
+        current_text += current_text[-offset:-offset+length-1]
+    return current_text
 
 
 def generate_compressed_tuples(text: str) -> Tuple[int, int, str]:
@@ -44,10 +63,14 @@ def longest_common_prefix(i: int, j: int, x: str) -> int:
         return 0
 
 
-txt = open("dickens.txt", "r").read(50000)
+txt = open("dickens.txt", "r").read(10000)
 # open("dickens_10k.txt", "w").write(txt)
 start = time.time()
 comp = compress(txt)
-print(time.time() - start)
-open("dickens_compressed_50k.txt", "wb").write(comp)
+print(comp)
+open("dickens_compressed_10k.txt", "wb").write(comp)
 
+decomp = decompress(comp)
+print(decomp)
+
+open("dickens_decompressed_10k.txt", "w").write(decomp)
