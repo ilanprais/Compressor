@@ -19,7 +19,7 @@ class LZ77:
         self.forward_size = forward_size
 
     def compress(self, file_path: str, compressed_file_path: str) -> bytes:
-        data = open(file_path, "rb").read(1000000)
+        data = open(file_path, "rb")
 
         output_buffer = bitarray(endian='big')
 
@@ -113,10 +113,8 @@ class LZ77:
             return 0
 
 
-lz77 = LZ77(window_size=1000)
-# open("dickens_100k.txt", "w").write(txt)
-start = time.time()
-comp = lz77.compress("dickens.txt", "dickens_compressed_1m")
-print(time.time() - start)
+lz77 = LZ77(window_size=MAX_WINDOW_SIZE)
 
-decomp = lz77.decompress("dickens_compressed_1m", "dickens_decompressed_1m.txt")
+comp = lz77.compress("dickens_100k.txt", "dickens_compressed_100k")
+
+decomp = lz77.decompress("dickens_compressed_100k", "dickens_decompressed_100k.txt")
