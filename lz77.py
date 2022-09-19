@@ -19,7 +19,7 @@ class LZ77:
         self.forward_size = forward_size
 
     def compress(self, file_path: str, compressed_file_path: str) -> bytes:
-        data = open(file_path, "rb")
+        data = open(file_path, "rb").read()
 
         output_buffer = bitarray(endian='big')
 
