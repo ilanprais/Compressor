@@ -1,5 +1,7 @@
+from enum import unique
 from bitarray import bitarray
 from borrows_wheeler_transform import BWT
+import numpy as np
 
 class RLE():
     
@@ -32,25 +34,21 @@ class RLE():
             
         print("Encoding...")
 
-        i = 0
-        seq_char = None
-        seq_len = 0
-        for c in data:
-            if seq_len == 0:
-                seq_char = c
-                seq_len = 1
-            elif c != seq_char or seq_len >= 15: # make sure len fits in 4 bits
-                print(seq_char, seq_len)
-                output_buffer.frombytes(bytes([seq_char]))
-                output_buffer.extend('{0:04b}'.format(seq_len)) # 4 bits
-                seq_char = c
-                seq_len = 1
-            else:
-                seq_len += 1
+        sequences = self.extract_sequence_tuples(data)
+        len_bound = self.find_optimal_max_seq_length(list(zip(*sequences))[1])
+        rep_size = len_bound.bit_length()
+        precise_len_bound = 2 ** (rep_size) - 1
 
-        # print(seq_char, seq_len)
-        output_buffer.frombytes(bytes([seq_char]))
-        output_buffer.extend('{0:04b}'.format(seq_len)) # 4 bits
+        output_buffer.frombytes(rep_size.to_bytes(length=1, byteorder="big")) # rep_size Can be up to 1 byte in size
+
+        for char, len in sequences:
+            while len > precise_len_bound:
+                output_buffer.frombytes(bytes([char]))
+                output_buffer.extend(f'{0:0{rep_size}b}'.format(precise_len_bound)) # rep_size bits
+                len -= precise_len_bound
+
+            output_buffer.frombytes(bytes([char]))
+            output_buffer.extend(f'{0:0{rep_size}b}'.format(len)) # rep_size bits
 
         output_buffer.fill()
         
@@ -60,6 +58,34 @@ class RLE():
             out.write(output_buffer.tobytes())
         
         return output_buffer.tobytes()
+
+    
+    def find_optimal_max_seq_length(self, lengths):
+        return int(
+            np.argmin(
+                [(l.bit_length() + 8 * np.ceil(np.divide(lengths, l))).sum() for l in range(2, max(lengths))]
+            ) + 1     
+        )
+
+    def extract_sequence_tuples(self, data: bytes):
+        tuples = []
+        i = 0
+        seq_char = None
+        seq_len = 0
+        for c in data:
+            if seq_len == 0:
+                seq_char = c
+                seq_len = 1
+            elif c != seq_char:
+                tuples.append((seq_char, seq_len))
+                seq_char = c
+                seq_len = 1
+            else:
+                seq_len += 1
+
+        tuples.append((seq_char, seq_len))
+
+        return tuples
 
 
     def decompress(self, compressed_file_path: str, decompressed_file_path: str) -> bytes:
@@ -73,10 +99,13 @@ class RLE():
             
         print("Decoding...")
 
+        rep_size = int.from_bytes(data[0:8], byteorder="big")
+        del data[0:8]
+
         i = 0
-        while i <= len(data) - 12:
-            output_buffer.append(data[i:i+8].tobytes()*int(data[i+8:i+12].to01(), 2))
-            i += 12
+        while i <= len(data) - 8 - rep_size:
+            output_buffer.append(data[i:i+8].tobytes()*int(data[i+8:i+8+rep_size].to01(), 2))
+            i += 8 + rep_size
 
         output = b''.join(output_buffer)
         
@@ -96,6 +125,6 @@ class RLE():
 
 rle = RLE(bwt=BWT())
 
-comp = rle.compress("dickens_500k.txt", "d_c_rl_500k")
+comp = rle.compress("dickens_100k.txt", "d_c_rl_100k")
 
-decomp = rle.decompress("d_c_rl_500k", "d_c_rl_500k_decomp.txt")
+decomp = rle.decompress("d_c_rl_100k", "d_c_rl_100k_decomp.txt")
