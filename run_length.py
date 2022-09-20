@@ -1,4 +1,5 @@
 from enum import unique
+from operator import le
 from bitarray import bitarray
 from borrows_wheeler_transform import BWT
 import numpy as np
@@ -44,11 +45,11 @@ class RLE():
         for char, len in sequences:
             while len > precise_len_bound:
                 output_buffer.frombytes(bytes([char]))
-                output_buffer.extend(f'{0:0{rep_size}b}'.format(precise_len_bound)) # rep_size bits
+                output_buffer.extend(f'{precise_len_bound:0{rep_size}b}') # rep_size bits
                 len -= precise_len_bound
 
             output_buffer.frombytes(bytes([char]))
-            output_buffer.extend(f'{0:0{rep_size}b}'.format(len)) # rep_size bits
+            output_buffer.extend(f'{len:0{rep_size}b}') # rep_size bits
 
         output_buffer.fill()
         
@@ -125,6 +126,6 @@ class RLE():
 
 rle = RLE(bwt=BWT())
 
-comp = rle.compress("dickens_100k.txt", "d_c_rl_100k")
+comp = rle.compress("dickens_200k.txt", "d_c_rl_200k")
 
-decomp = rle.decompress("d_c_rl_100k", "d_c_rl_100k_decomp.txt")
+decomp = rle.decompress("d_c_rl_200k", "d_c_rl_200k_decomp.txt")
