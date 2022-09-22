@@ -20,16 +20,16 @@ class RLE():
     def __init__(self, bwt: BWT = None) -> None:
         self.bwt = bwt
 
+
     def compress(self, file_path: str, compressed_file_path: str) -> bytes:
 
         output_buffer = bitarray(endian='big')
 
         if self.bwt:
             print("Transforming...")
-            L, I = self.bwt.transform(open(file_path, "r").read())
+            L = self.bwt.transform(open(file_path, "r").read())
             print("Done transforming!")
             data = L.encode()
-            output_buffer.frombytes(I.to_bytes(length=4, byteorder="big")) # L Can be up to 4 bytes in size
         else:
             data = open(file_path, "rb").read()
             
@@ -61,12 +61,116 @@ class RLE():
         return output_buffer.tobytes()
 
     
+    def decompress(self, compressed_file_path: str, decompressed_file_path: str) -> bytes:
+        data = bitarray(endian='big')
+        data.frombytes(open(compressed_file_path, "rb").read())
+        output_buffer = []
+            
+        print("Decoding...")
+
+        rep_size = int.from_bytes(data[0:8], byteorder="big")
+        del data[0:8]
+
+        i = 0
+        while i <= len(data) - 8 - rep_size:
+            output_buffer.append(data[i:i+8].tobytes()*int(data[i+8:i+8+rep_size].to01(), 2))
+            i += 8 + rep_size
+
+        output = b''.join(output_buffer)
+        
+        print("Done Decoding!")
+
+        if self.bwt:
+            print("Restoring...")
+            output = self.bwt.restore(output.decode()).encode()
+            print("Done Restoring!")
+        
+        with open(decompressed_file_path, "wb") as out:
+            out.write(output)
+
+        return output
+
+
+    def compress_v2(self, file_path: str, compressed_file_path: str) -> bytes:
+
+        output_buffer = bitarray(endian='big')
+
+        if self.bwt:
+            print("Transforming...")
+            L = self.bwt.transform(open(file_path, "r").read())
+            print("Done transforming!")
+            data = L.encode()
+        else:
+            data = open(file_path, "rb").read()
+            
+        print("Encoding...")
+
+        sequences = self.extract_sequence_tuples(data)
+
+        for char, len in sequences:
+            
+            len_bit_length = len.bit_length()
+
+            len_bits_size = 3
+            max_len_bit_length = 2 ** len_bits_size - 1
+            max_len = 2**max_len_bit_length - 1
+
+            while len > max_len:
+                output_buffer.frombytes(bytes([char]))
+                output_buffer.extend(f'{max_len_bit_length:0{len_bits_size}b}') # 3 bits - maximum len bits = 7 -> maximum len = 127
+                output_buffer.extend(f'{max_len:0{max_len_bit_length}b}') # len_bit_length bits
+                len -= max_len
+                len_bit_length = len.bit_length()
+
+
+            output_buffer.frombytes(bytes([char]))
+            output_buffer.extend(f'{len_bit_length:0{len_bits_size}b}') # 3 bits - maximum len bits = 7 -> maximum len = 127
+            output_buffer.extend(f'{len:0{len_bit_length}b}') # len_bit_length bits
+
+        output_buffer.fill()
+        
+        print("Done Encoding!")
+
+        with open(compressed_file_path, "wb") as out:
+            out.write(output_buffer.tobytes())
+        
+        return output_buffer.tobytes()
+
+
+    def decompress_v2(self, compressed_file_path: str, decompressed_file_path: str) -> bytes:
+        data = bitarray(endian='big')
+        data.frombytes(open(compressed_file_path, "rb").read())
+        output_buffer = []
+            
+        print("Decoding...")
+
+        while len(data) > 10:
+            rep_bit_length = int(data[8:11].to01(), 2)
+            output_buffer.append(data[0:8].tobytes()*int(data[11:11+rep_bit_length].to01(), 2))
+            del data[0:11+rep_bit_length]
+
+        output = b''.join(output_buffer)
+        
+        print("Done Decoding!")
+
+        if self.bwt:
+            print("Restoring...")
+            output = self.bwt.restore(output.decode()).encode()
+            print("Done Restoring!")
+        
+        with open(decompressed_file_path, "wb") as out:
+            out.write(output)
+
+        return output
+
+    
     def find_optimal_max_seq_length(self, lengths):
         return int(
             np.argmin(
                 [(l.bit_length() + 8 * np.ceil(np.divide(lengths, l))).sum() for l in range(2, max(lengths))]
             ) + 1     
         )
+
 
     def extract_sequence_tuples(self, data: bytes):
         tuples = []
@@ -89,43 +193,8 @@ class RLE():
         return tuples
 
 
-    def decompress(self, compressed_file_path: str, decompressed_file_path: str) -> bytes:
-        data = bitarray(endian='big')
-        data.frombytes(open(compressed_file_path, "rb").read())
-        output_buffer = []
-
-        if self.bwt:
-            I = int.from_bytes(data[0:32], byteorder="big")
-            del data[0:32]
-            
-        print("Decoding...")
-
-        rep_size = int.from_bytes(data[0:8], byteorder="big")
-        del data[0:8]
-
-        i = 0
-        while i <= len(data) - 8 - rep_size:
-            output_buffer.append(data[i:i+8].tobytes()*int(data[i+8:i+8+rep_size].to01(), 2))
-            i += 8 + rep_size
-
-        output = b''.join(output_buffer)
-        
-        print("Done Decoding!")
-        
-        print("Restoring...")
-
-        if self.bwt:
-            output = self.bwt.restore(output.decode(), I).encode()
-        
-        print("Done Restoring!")
-
-        with open(decompressed_file_path, "wb") as out:
-            out.write(output)
-
-        return output
-
 rle = RLE(bwt=BWT())
 
-comp = rle.compress("dickens_200k.txt", "d_c_rl_200k")
+comp = rle.compress_v2("dickens_100k.txt", "d_c_rl_100k_v2")
 
-decomp = rle.decompress("d_c_rl_200k", "d_c_rl_200k_decomp.txt")
+decomp = rle.decompress_v2("d_c_rl_100k_v2", "d_c_rl_100k_v2_decomp.txt")
