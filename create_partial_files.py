@@ -1,0 +1,5 @@
+open("dickens_100k.txt", 'wb').write(open("dickens.txt", 'rb').read(100000))
+open("dickens_200k.txt", 'wb').write(open("dickens.txt", 'rb').read(200000))
+open("dickens_500k.txt", 'wb').write(open("dickens.txt", 'rb').read(500000))
+open("dickens_1m.txt", 'wb').write(open("dickens.txt", 'rb').read(1000000))
+open("dickens_10k.txt", 'wb').write(open("dickens.txt", 'rb').read(10000))
