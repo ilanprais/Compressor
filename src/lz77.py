@@ -6,7 +6,7 @@ from functools import lru_cache
 import time
 from tqdm import tqdm
 from bitarray import bitarray
-from borrows_wheeler_transform import BWT
+from src.borrows_wheeler_transform import BWT
 
 MAX_WINDOW_SIZE = 4000 # 12 bits 
 MAX_FORWARD_SIZE = 15 # 4 bits

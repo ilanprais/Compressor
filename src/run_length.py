@@ -1,7 +1,7 @@
 from enum import unique
 from operator import le
 from bitarray import bitarray
-from borrows_wheeler_transform import BWT
+from src.borrows_wheeler_transform import BWT
 import numpy as np
 
 class RLE():
@@ -75,84 +75,6 @@ class RLE():
         while i <= len(data) - 8 - rep_size:
             output_buffer.append(data[i:i+8].tobytes()*int(data[i+8:i+8+rep_size].to01(), 2))
             i += 8 + rep_size
-
-        output = b''.join(output_buffer)
-        
-        print("Done Decoding!")
-
-        if self.bwt:
-            print("Restoring...")
-            output = self.bwt.restore(output.decode()).encode()
-            print("Done Restoring!")
-        
-        with open(decompressed_file_path, "wb") as out:
-            out.write(output)
-
-        return output
-
-
-    def compress_v2(self, file_path: str, compressed_file_path: str) -> bytes:
-
-        output_buffer = bitarray(endian='big')
-
-        if self.bwt:
-            print("Transforming...")
-            L = self.bwt.transform(open(file_path, "r").read())
-            print("Done transforming!")
-            data = L.encode()
-        else:
-            data = open(file_path, "rb").read()
-            
-        print("Encoding...")
-
-        sequences = self.extract_sequence_tuples(data)
-
-        len_bits_size = self.find_optimal_max_seq_length(list(zip(*sequences))[1]).bit_length()
-        output_buffer.frombytes(len_bits_size.to_bytes(length=1, byteorder="big"))
-
-        for char, len in sequences:
-            
-            len_bit_length = len.bit_length()
-
-            max_len_bit_length = 2 ** len_bits_size - 1
-            max_len = 2**max_len_bit_length - 1
-
-            while len > max_len:
-                output_buffer.frombytes(bytes([char]))
-                output_buffer.extend(f'{max_len_bit_length:0{len_bits_size}b}') # 3 bits - maximum len bits = 7 -> maximum len = 127
-                output_buffer.extend(f'{max_len:0{max_len_bit_length}b}') # len_bit_length bits
-                len -= max_len
-                len_bit_length = len.bit_length()
-
-
-            output_buffer.frombytes(bytes([char]))
-            output_buffer.extend(f'{len_bit_length:0{len_bits_size}b}') # 3 bits - maximum len bits = 7 -> maximum len = 127
-            output_buffer.extend(f'{len:0{len_bit_length}b}') # len_bit_length bits
-
-        output_buffer.fill()
-        
-        print("Done Encoding!")
-
-        with open(compressed_file_path, "wb") as out:
-            out.write(output_buffer.tobytes())
-        
-        return output_buffer.tobytes()
-
-
-    def decompress_v2(self, compressed_file_path: str, decompressed_file_path: str) -> bytes:
-        data = bitarray(endian='big')
-        data.frombytes(open(compressed_file_path, "rb").read())
-        output_buffer = []
-            
-        print("Decoding...")
-
-        len_bits_size = int(data[0:8].to01(), 2)
-        del data[0:8]
-
-        while len(data) > 8 + len_bits_size - 1:
-            rep_bit_length = int(data[8:8+len_bits_size].to01(), 2)
-            output_buffer.append(data[0:8].tobytes()*int(data[8+len_bits_size:8+len_bits_size+rep_bit_length].to01(), 2))
-            del data[0:8+len_bits_size+rep_bit_length]
 
         output = b''.join(output_buffer)
         
