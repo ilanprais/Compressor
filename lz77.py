@@ -6,22 +6,30 @@ from functools import lru_cache
 import time
 from tqdm import tqdm
 from bitarray import bitarray
+from borrows_wheeler_transform import BWT
 
 MAX_WINDOW_SIZE = 4000 # 12 bits 
 MAX_FORWARD_SIZE = 15 # 4 bits
 
 class LZ77:
 
-    def __init__(self, window_size = 500, forward_size = 15) -> None:
+    def __init__(self, bwt: BWT = None, window_size = 500, forward_size = 15) -> None:
         assert window_size <= MAX_WINDOW_SIZE
         assert forward_size <= MAX_FORWARD_SIZE
         self.window_size = window_size
         self.forward_size = forward_size
+        self.bwt = bwt
 
     def compress(self, file_path: str, compressed_file_path: str) -> bytes:
-        data = open(file_path, "rb").read()
-
         output_buffer = bitarray(endian='big')
+
+        if self.bwt:
+            print("Transforming...")
+            L = self.bwt.transform(open(file_path, "r").read())
+            print("Done transforming!")
+            data = L.encode()
+        else:
+            data = open(file_path, "rb").read()
 
         i = 0
         with tqdm(total=len(data)) as p:
@@ -30,8 +38,6 @@ class LZ77:
 
                 offset = i - from_index
                 letter = data[i]
-
-                # print(f"({offset}, {length}, {chr(letter)})")
 
                 if offset > 0:
                     output_buffer.append(True)
@@ -70,7 +76,7 @@ class LZ77:
                     offset = (byte1 << 4) | (byte2 >> 4)
                     length = (byte2 & 0xf)
 
-                    for i in range(length):
+                    for _ in range(length):
                         output_buffer.append(output_buffer[-offset])
 
                     p.update(length*8)
@@ -81,6 +87,11 @@ class LZ77:
                     p.update(8)
 
         output = b''.join(output_buffer[:-1])
+
+        if self.bwt:
+            print("Restoring...")
+            output = self.bwt.restore(output.decode()).encode()
+            print("Done Restoring!")
 
         with open(decompressed_file_path, "wb") as out:
             out.write(output)
@@ -113,7 +124,7 @@ class LZ77:
             return 0
 
 
-lz77 = LZ77(window_size=MAX_WINDOW_SIZE)
+lz77 = LZ77(window_size=MAX_WINDOW_SIZE, bwt=BWT())
 
 comp = lz77.compress("dickens_100k.txt", "dickens_compressed_100k")
 
