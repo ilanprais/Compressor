@@ -122,10 +122,3 @@ class LZ77:
             return 1 + LZ77.longest_common_prefix(i + 1, j + 1, x)
         else:
             return 0
-
-
-lz77 = LZ77(window_size=MAX_WINDOW_SIZE, bwt=BWT())
-
-comp = lz77.compress("dickens_100k.txt", "dickens_compressed_100k")
-
-decomp = lz77.decompress("dickens_compressed_100k", "dickens_decompressed_100k.txt")

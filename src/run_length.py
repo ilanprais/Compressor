@@ -276,10 +276,3 @@ class RLEV2(RLE):
             out.write(output)
 
         return output
-
-
-rle = RLE(bwt=BWT())
-
-comp = rle.compress_v2("dickens_1m.txt", "d_c_rl_1m_v2")
-
-decomp = rle.decompress_v2("d_c_rl_1m_v2", "d_c_rl_1m_v2_decomp.txt")
